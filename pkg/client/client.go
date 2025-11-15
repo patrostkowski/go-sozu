@@ -22,7 +22,7 @@ import (
 	"net"
 	"time"
 
-	internal "github.com/patrostkowski/go-sozu/internal"
+	pb "github.com/patrostkowski/go-sozu/pkg/pb"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -61,7 +61,7 @@ func New(opts ...Option) *Client {
 }
 
 // do sends a Request protobuf to Sōzu and reads one Response protobuf.
-func (c *Client) do(ctx context.Context, req *internal.Request) (*internal.Response, error) {
+func (c *Client) do(ctx context.Context, req *pb.Request) (*pb.Response, error) {
 	if req == nil {
 		return nil, fmt.Errorf("nil request")
 	}
@@ -122,16 +122,16 @@ func (c *Client) do(ctx context.Context, req *internal.Request) (*internal.Respo
 			return nil, fmt.Errorf("read response payload: %w", err)
 		}
 
-		var resp internal.Response
+		var resp pb.Response
 		if err := proto.Unmarshal(respBuf, &resp); err != nil {
 			return nil, fmt.Errorf("unmarshal response: %w", err)
 		}
 
 		switch resp.GetStatus() {
-		case internal.ResponseStatus_PROCESSING:
+		case pb.ResponseStatus_PROCESSING:
 			// keep processing until ResponseStatus_OK
 			continue
-		case internal.ResponseStatus_FAILURE:
+		case pb.ResponseStatus_FAILURE:
 			return &resp, fmt.Errorf("sozu error: %s", resp.GetMessage())
 		default:
 			return &resp, nil
