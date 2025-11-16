@@ -18,3 +18,6 @@ tasks:
   codegen:
     cmds:
       - ./hack/codegen.sh
+  build-sozuctl:
+    cmds:
+      - GOOS=linux CGO_ENABLED=0 go build -o bin/sozuctl cmd/sozuctl/main.go

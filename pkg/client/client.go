@@ -22,7 +22,7 @@ import (
 	"net"
 	"time"
 
-	pb "github.com/patrostkowski/go-sozu/pkg/pb"
+	internal "github.com/patrostkowski/go-sozu/internal"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -61,7 +61,7 @@ func New(opts ...Option) *Client {
 }
 
 // do sends a Request protobuf to Sōzu and reads one Response protobuf.
-func (c *Client) do(ctx context.Context, req *pb.Request) (*pb.Response, error) {
+func (c *Client) do(ctx context.Context, req *Request) (*Response, error) {
 	if req == nil {
 		return nil, fmt.Errorf("nil request")
 	}
@@ -86,13 +86,11 @@ func (c *Client) do(ctx context.Context, req *pb.Request) (*pb.Response, error) 
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	// message_len = delimiterSize + payload_len (matches Channel::write_delimited_message in channel.rs)
 	messageLen := uint64(len(payload) + delimiterSize)
 
 	header := make([]byte, delimiterSize)
 	binary.LittleEndian.PutUint64(header, messageLen)
 
-	// write header then payload
 	if _, err := conn.Write(header); err != nil {
 		return nil, fmt.Errorf("write header: %w", err)
 	}
@@ -101,7 +99,6 @@ func (c *Client) do(ctx context.Context, req *pb.Request) (*pb.Response, error) 
 	}
 
 	for {
-		// first read 8-byte length
 		respHeader := make([]byte, delimiterSize)
 		if _, err := io.ReadFull(conn, respHeader); err != nil {
 			return nil, fmt.Errorf("read response header: %w", err)
@@ -115,23 +112,21 @@ func (c *Client) do(ctx context.Context, req *pb.Request) (*pb.Response, error) 
 			return nil, fmt.Errorf("response too large: %d bytes", respMessageLen)
 		}
 
-		// then read payload
 		respPayloadLen := int(respMessageLen) - delimiterSize
 		respBuf := make([]byte, respPayloadLen)
 		if _, err := io.ReadFull(conn, respBuf); err != nil {
 			return nil, fmt.Errorf("read response payload: %w", err)
 		}
 
-		var resp pb.Response
+		var resp Response
 		if err := proto.Unmarshal(respBuf, &resp); err != nil {
 			return nil, fmt.Errorf("unmarshal response: %w", err)
 		}
 
 		switch resp.GetStatus() {
-		case pb.ResponseStatus_PROCESSING:
-			// keep processing until ResponseStatus_OK
+		case internal.ResponseStatus_PROCESSING:
 			continue
-		case pb.ResponseStatus_FAILURE:
+		case internal.ResponseStatus_FAILURE:
 			return &resp, fmt.Errorf("sozu error: %s", resp.GetMessage())
 		default:
 			return &resp, nil

@@ -33,3 +33,5 @@ go.work.sum
 
 command.proto
 .DS_Store
+
+bin
